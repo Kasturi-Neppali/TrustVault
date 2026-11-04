@@ -9,8 +9,7 @@ const app = express();
 // Global Middleware
 app.use(express.json());
 app.use(cors({
-    origin: ['http://localhost:3000'], // We will restrict this to your frontend URL
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: "https://trustvault-app-five.vercel.app",
     credentials: true
 }));
 
