@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const os = require('os');
 
 const { apiLimiter } = require('./middleware/rateLimiter');
 const { noSqlSanitizer } = require('./middleware/validate');
@@ -37,8 +38,13 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow non-browser agents (Supertest, curl) or allowlisted web origins
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow non-browser agents (Supertest, curl), localhost on any port, or allowlisted web origins
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+      /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)
+    ) {
       callback(null, true);
     } else {
       callback(new Error(`CORS policy violation: Origin ${origin} not permitted.`));
@@ -76,15 +82,18 @@ app.use(errorHandler);
 
 // Database Connection & Server Initialization
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/trustvault';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/trustvault?directConnection=true';
 
-if (require.main === module) {
-  mongoose.connect(MONGO_URI)
+function startServer(port = PORT) {
+  return mongoose.connect(MONGO_URI, {
+    runtimeAdapters: { os }
+  })
     .then(() => {
       console.log(' Connected to MongoDB (TrustVault)');
-      app.listen(PORT, () => {
-        console.log(` TrustVault Security Server running on port ${PORT}`);
+      const server = app.listen(port, () => {
+        console.log(` TrustVault Security Server running on port ${port}`);
       });
+      return server;
     })
     .catch(err => {
       console.error('❌ MongoDB Connection Error:', err);
@@ -92,4 +101,10 @@ if (require.main === module) {
     });
 }
 
+// Auto-start server unless running in automated test suite
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
+
+app.startServer = startServer;
 module.exports = app;

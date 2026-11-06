@@ -59,7 +59,11 @@ const Login = ({ onLoginSuccess }) => {
         onLoginSuccess(user);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Authentication request failed. Please check credentials.');
+      if (!err.response) {
+        setError('Cannot connect to backend server on http://localhost:5000. Please ensure the backend server is running (run "npm start" in the terminal).');
+      } else {
+        setError(err.response?.data?.error || 'Authentication request failed. Please check credentials.');
+      }
     } finally {
       setIsLoading(false);
     }
