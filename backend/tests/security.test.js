@@ -1,28 +1,25 @@
+process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = 'test_secret_key_for_jest_only';
 
 const request = require('supertest');
 const mongoose = require('mongoose');
-const express = require('express');
-const authRoutes = require('../routes/auth.routes');
-const documentRoutes = require('../routes/document.routes');
+const os = require('os');
+const app = require('../server');
 
-process.env.JWT_SECRET = 'test_secret_key_for_jest_only';
-
-// Setup a mock app for testing
-const app = express();
-app.use(express.json());
-app.use('/api/auth', authRoutes);
-app.use('/api/documents', documentRoutes);
-
-// We will use a separate test database
 beforeAll(async () => {
-    await mongoose.connect('mongodb://localhost:27017/trustvault_test');
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect('mongodb://127.0.0.1:27017/trustvault_test?directConnection=true', {
+            runtimeAdapters: { os }
+        });
+    }
     // Clear collections before testing
     await mongoose.connection.db.dropDatabase();
-});
+}, 30000);
 
 afterAll(async () => {
+    await mongoose.connection.db.dropDatabase();
     await mongoose.connection.close();
-});
+}, 30000);
 
 describe('TrustVault Security & Isolation Tests', () => {
     let userAToken, userBToken;
@@ -31,14 +28,18 @@ describe('TrustVault Security & Isolation Tests', () => {
 
     it('1. Should register User A and User B', async () => {
         const resA = await request(app).post('/api/auth/register').send({
-            email: 'usera@test.com', password: 'password123'
+            name: 'User A',
+            email: 'usera@test.com',
+            password: 'Password@1234'
         });
-        userAId = resA.body.userId;
+        userAId = resA.body.user.id;
 
         const resB = await request(app).post('/api/auth/register').send({
-            email: 'userb@test.com', password: 'password123'
+            name: 'User B',
+            email: 'userb@test.com',
+            password: 'Password@1234'
         });
-        userBId = resB.body.userId;
+        userBId = resB.body.user.id;
 
         expect(resA.statusCode).toEqual(201);
         expect(resB.statusCode).toEqual(201);
@@ -46,12 +47,14 @@ describe('TrustVault Security & Isolation Tests', () => {
 
     it('2. Should log in both users to get tokens', async () => {
         const resA = await request(app).post('/api/auth/login').send({
-            email: 'usera@test.com', password: 'password123'
+            email: 'usera@test.com',
+            password: 'Password@1234'
         });
         userAToken = resA.body.token;
 
         const resB = await request(app).post('/api/auth/login').send({
-            email: 'userb@test.com', password: 'password123'
+            email: 'userb@test.com',
+            password: 'Password@1234'
         });
         userBToken = resB.body.token;
 
@@ -60,8 +63,8 @@ describe('TrustVault Security & Isolation Tests', () => {
     });
 
     it('3. User A should be able to upload a document', async () => {
-        // Create a dummy file buffer
-        const buffer = Buffer.from('Confidential Data');
+        // Create a valid text file buffer
+        const buffer = Buffer.from('Confidential Data for User A');
         
         const res = await request(app)
             .post('/api/documents/upload')
@@ -80,8 +83,6 @@ describe('TrustVault Security & Isolation Tests', () => {
             .get(`/api/documents/${documentId}/download`)
             .set('Authorization', `Bearer ${userBToken}`);
 
-        // This is the most critical test. If the judges remove the DB check 
-        // in your middleware, this test will fail because it will return 200 instead of 403.
         expect(res.statusCode).toEqual(403);
         expect(res.body.error).toContain('Forbidden');
     });

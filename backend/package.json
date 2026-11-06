@@ -6,7 +6,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "jest --detectOpenHandles"
+    "test": "jest tests --runInBand --forceExit",
+    "verify-audit": "node scripts/verifyAuditChain.js",
+    "seed-admin": "node scripts/seedAdmin.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
