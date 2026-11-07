@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 // Base API URL: Defaults to localhost:5000/api in development, configurable via environment
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://trustvault-iqs6.onrender.com/api';
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true // Crucial: Transmit HttpOnly session cookies across origins
